@@ -14,7 +14,7 @@ class JbuilderTemplate < Jbuilder
     super(*args)
   end
 
-  def partial!(name_or_options, locals = {})
+  def partial!(name_or_options, locals = {}, &block)
     case name_or_options
     when ::Hash
       # partial! partial: 'name', foo: 'bar'
@@ -32,14 +32,14 @@ class JbuilderTemplate < Jbuilder
       options[:collection] = locals[:collection] if locals.key?(:collection)
     end
 
-    _render_partial_with_options options
+    _render_partial_with_options options, &block
   end
 
-  def array!(collection = [], *attributes)
+  def array!(collection = [], *attributes, &block)
     options = attributes.extract_options!
 
     if options.key?(:partial)
-      partial! options[:partial], options.merge(collection: collection)
+      partial! options[:partial], options.merge(collection: collection), &block
     else
       super
     end
@@ -80,7 +80,7 @@ class JbuilderTemplate < Jbuilder
 
   protected
 
-  def _render_partial_with_options(options)
+  def _render_partial_with_options(options, &block)
     options.reverse_merge! locals: {}
     options.reverse_merge! ::JbuilderTemplate.template_lookup_options
     as = options[:as]
@@ -93,16 +93,26 @@ class JbuilderTemplate < Jbuilder
         member_locals = locals.clone
         member_locals.merge! collection: collection
         member_locals.merge! as => member
-        _render_partial options.merge(locals: member_locals)
+        _render_partial options.merge(locals: member_locals), &block
       end
     else
-      _render_partial options
+      _render_partial options, &block
     end
   end
 
-  def _render_partial(options)
+  def _render_partial(options, &block)
     options[:locals].merge! json: self
     @context.render options
+
+    if block
+      as = options[:locals][options[:as]]
+
+      if as
+        yield as, options
+      else
+        yield
+      end
+    end
   end
 
   def _cache_key(key, options)

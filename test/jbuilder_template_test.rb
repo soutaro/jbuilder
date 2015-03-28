@@ -126,12 +126,53 @@ class JbuilderTemplateTest < ActionView::TestCase
     assert_equal 'goodbye', MultiJson.load(json)['content']
   end
 
+  test 'partial! + block' do
+    json = render_jbuilder <<-JBUILDER
+      json.partial! 'blog_post', blog_post: BLOG_POST_COLLECTION.first do
+        json.favs 18
+      end
+    JBUILDER
+
+    post = BLOG_POST_COLLECTION.first
+    assert_equal post.id, MultiJson.load(json)['id']
+    assert_equal 18, MultiJson.load(json)['favs']
+  end
+
   test 'partial! renders collections' do
     json = render_jbuilder <<-JBUILDER
       json.partial! 'blog_post', :collection => BLOG_POST_COLLECTION, :as => :blog_post
     JBUILDER
 
     assert_collection_rendered json
+  end
+
+  test 'partial! renders collections with block' do
+    json = render_jbuilder <<-JBUILDER
+      json.partial! 'blog_post', :collection => BLOG_POST_COLLECTION, :as => :blog_post do
+        json.favs 18
+      end
+    JBUILDER
+
+    assert_collection_rendered json
+
+    MultiJson.load(json).each do |post_json|
+      assert_equal 18, post_json['favs']
+    end
+  end
+
+  test 'partial! renders collections with block with parameter' do
+    json = render_jbuilder <<-JBUILDER
+      json.partial! 'blog_post', :collection => BLOG_POST_COLLECTION, :as => :blog_post do |post|
+        json.color %w(red green yellow)[post.id % 3]
+      end
+    JBUILDER
+
+    assert_collection_rendered json
+
+    MultiJson.load(json).each do |post_json|
+      expected_color = %w(red green yellow)[post_json['id'] % 3]
+      assert_equal expected_color, post_json['color']
+    end
   end
 
   test 'partial! renders collections when as argument is a string' do
@@ -180,6 +221,19 @@ class JbuilderTemplateTest < ActionView::TestCase
     JBUILDER
 
     assert_collection_rendered json
+  end
+
+  test 'render array of partials with block' do
+    json = render_jbuilder <<-JBUILDER
+      json.array! BLOG_POST_COLLECTION, :partial => 'blog_post', :as => :blog_post do
+        json.favs 18
+      end
+    JBUILDER
+
+    assert_collection_rendered json
+    MultiJson.load(json).each do |post_json|
+      assert_equal 18, post_json['favs']
+    end
   end
 
   test 'render array of partials as empty array with nil-collection' do
